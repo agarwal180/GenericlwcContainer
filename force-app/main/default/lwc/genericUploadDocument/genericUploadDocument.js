@@ -9,7 +9,7 @@ const MAX_FILE_SIZE = 5242880;
     const fileType = ["image/jpeg", "image/jpg", "image/png", "application/pdf","application/msword",
 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 
-export default class UploadDocument extends NavigationMixin(LightningElement) {
+export default class GenericUploadDocument extends NavigationMixin(LightningElement) {
     @api label;
     @api documentTitle;
     @api documentHeader;
