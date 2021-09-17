@@ -1,0 +1,38 @@
+<template>
+        <p><b>{documentHeader}</b></p>
+        <div if-true={documentTitle}>
+            <p class="l-title-main"><b>{documentTitle}</b></p>
+            <p class="l-txt-xsml">{documentTitleDescription}</p>
+        </div>
+        <template if:true={showLoadingSpinner}>
+            <lightning-spinner alternative-text="Uploading......" size="medium"></lightning-spinner>
+        </template>
+        <div if:false={uploadFile} class="l-upload">
+            <div class="l-upload__file">
+                <lightning-input type="file" label={label} name={name} required={filerequired} max="1"
+                    accept={acceptedFormats} onchange={handleFileChanges} multiple="false" >
+                </lightning-input>
+            </div>
+            <div class="l-upload__block">
+                <div class="l-upload__block__image">
+                    <img src={uploadUrl} width="26" height="20" />
+                </div>
+                <div class="l-upload__block__text">
+                    <span>{uploadfiles}</span>
+                    <span>{fileformatsize}</span>
+                </div>
+            </div>
+        </div>
+        <br/>
+        <div if:true={uploadFile} class="slds-text-body_small slds-text-color_success">
+           <div> {uploadFile.Title}</div>
+        <lightning-icon icon-name="utility:close" data-name={uploadFile.Title} data-id={uploadFile.ContentDocumentId} alternative-text="Close this window" size="medium"  
+            variant="bare-inverse" onclick={removeFile}>  
+        </lightning-icon>
+
+        </div>
+        <div if:true={error} style="color:red;">
+            {error}
+        </div>
+
+</template>
