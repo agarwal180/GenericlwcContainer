@@ -1,0 +1,44 @@
+<template>
+    <lightning-card title="Global Search Comp" icon-name="custom:custom19">
+        <div class="slds-grid slds-wrap">
+            <div class="slds-m-around_medium slds-col slds-size_1-of-6">
+                <lightning-combobox
+                name=""
+                label="Status"
+                value={value}
+                placeholder="Select"
+                options={options}
+                onchange={handleChange} ></lightning-combobox>
+            </div>
+    
+            <div class="slds-m-around_medium slds-col slds-size_1-of-6">
+                <lightning-input
+                name="enter-search"
+                label="Search when user hits the 'enter' key"
+                type="search" onkeyup={handleKeyUp}
+            ></lightning-input>
+            </div>
+        </div>
+        <div if:true={DataTableResponseWrappper} class="slds-wrap slds-grid">
+            <div class="slds-col slds-large-size_3-of-12 slds-medium-size_3-of-12 slds-small-size_12-of-12 slds-x-small-size_12-of-12">
+                <lightning-vertical-navigation>
+                    <lightning-vertical-navigation-section label="Global Search">
+                        <template for:each={DataTableResponseWrappper} for:item="table">
+                        <lightning-vertical-navigation-item label={table.ObjectName} name={table.ObjectName} key={table.ObjectName} onclick={showTableData}></lightning-vertical-navigation-item>
+                    </template>
+                    </lightning-vertical-navigation-section>
+                </lightning-vertical-navigation>
+            </div>
+            <div class="slds-col slds-large-size_9-of-12 slds-medium-size_9-of-12 slds-small-size_12-of-12 slds-x-small-size_12-of-12">
+                <lightning-datatable if:true={DataTableResponseWrappper}
+                    key-field="id"
+                    data={tableData}  hide-checkbox-column="true"
+                    columns={tableCoumn}>
+                </lightning-datatable>  
+            </div>
+        </div>
+        
+    </lightning-card>
+    
+
+</template>
