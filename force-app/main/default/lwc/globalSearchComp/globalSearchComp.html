@@ -21,13 +21,27 @@
         </div>
         <div if:true={DataTableResponseWrappper} class="slds-wrap slds-grid">
             <div class="slds-col slds-large-size_3-of-12 slds-medium-size_3-of-12 slds-small-size_12-of-12 slds-x-small-size_12-of-12">
-                <lightning-vertical-navigation>
+                <div class="demo-only" style="width:320px">
+                    <nav class="slds-nav-vertical" aria-label="Sub page">
+                <div class="slds-nav-vertical__section">
+                    <h2 id="entity-header" class="slds-nav-vertical__title">Global Search</h2>
+                    <ul aria-describedby="entity-header">
+                        <template for:each={DataTableResponseWrappper} for:item="table">
+                            <li class="slds-nav-vertical__item" data-class={table.ObjectName} key={table.ObjectName} >}
+                                <a class="slds-nav-vertical__action" name={table.ObjectName} aria-current="true" onclick={showTableData}>{table.ObjectName} &nbsp;&nbsp; {table.count}</a>
+                              </li>
+                            </template>
+                    </ul>
+                  </div>
+                  </nav></div>
+             <!--   <lightning-vertical-navigation>
                     <lightning-vertical-navigation-section label="Global Search">
                         <template for:each={DataTableResponseWrappper} for:item="table">
                         <lightning-vertical-navigation-item label={table.ObjectName} name={table.ObjectName} key={table.ObjectName} onclick={showTableData}></lightning-vertical-navigation-item>
                     </template>
                     </lightning-vertical-navigation-section>
                 </lightning-vertical-navigation>
+            -->
             </div>
             <div class="slds-col slds-large-size_9-of-12 slds-medium-size_9-of-12 slds-small-size_12-of-12 slds-x-small-size_12-of-12">
                 <lightning-datatable if:true={DataTableResponseWrappper}

@@ -6,7 +6,7 @@ public with sharing class TableController {
     public static List<DataTableResponse>  getSearchRecords(String searchStr){
         
         List<DataTableResponse>  tableResponseList = new List<DataTableResponse>();
-        String query = 'Find ' + searchStr + ' IN ALL Fields Returning ';
+        String query = 'Find  \'' + String.escapeSingleQuotes(searchStr) + '\' IN ALL Fields Returning ';
         try{
         for(Dynamic_Data_Table__mdt dynamicDataTable: [SELECT Id, DeveloperName,Object_Name__c, Field_Value__c, Header__c, Query__c, Table_Title__c FROM Dynamic_Data_Table__mdt]){
             DataTableResponse dtr = new DataTableResponse();
@@ -28,8 +28,8 @@ public with sharing class TableController {
                 query+= fieldApiNameList[i].subStringBefore(':').trim() + ',';
             }
             
-            query+= 'Id ) ';
-            String soqlQuery;
+            query+= 'Id ), ';
+          /*  String soqlQuery;
             System.debug('search'+ searchStr);
             if(String.isNotBlank(searchStr) && String.isNotEmpty(searchStr)){
                 searchStr = '%'+ searchStr +'%';
@@ -43,16 +43,32 @@ public with sharing class TableController {
             }else{
                 soqlQuery = dynamicDataTable.Query__c;
             }           
-            tableRecords = Database.query(soqlQuery);
+           // tableRecords = Database.query(soqlQuery);*/
             dtr.count = tableRecords.size();
             dtr.lstDataTableData =  tableRecords;
             dtr.ObjectName = dynamicDataTable.Object_Name__c;
             dtr.lstDatatableCoumns = datatableColumList;
             tableResponseList.add(dtr);
         }
+            
+            Map<String,List<Sobject>>  mapObjectNameWithRecord = new Map<String,List<Sobject>>();
         System.debug('Query' + query);
-         // String searchquery='FIND\'Edge*\'IN ALL FIELDS RETURNING Account(id,name),Contact, Lead'; 
-   				//List<List<sobject>> records = Search.query(query);
+            query = query.substring(0, query.lastIndexOf(','));
+		        System.debug('Query' + query);            
+   				List<List<sobject>> records = Search.query(query);
+            for(List<Sobject> record:records){
+                System.debug('records'+ record);
+                if(!record.isEmpty()){
+                    String sObjName = record[0].Id.getSObjectType().getDescribe().getName();
+                    mapObjectNameWithRecord.put(sObjName,record);
+                }
+            }
+            
+            for(DataTableResponse tableResponse: tableResponseList){
+                tableResponse.lstDataTableData = mapObjectNameWithRecord.get(tableResponse.ObjectName);
+                tableResponse.count = mapObjectNameWithRecord.get(tableResponse.ObjectName)!= null ? mapObjectNameWithRecord.get(tableResponse.ObjectName).size() : 0;
+            }
+            System.debug('data'+ tableResponseList);
         }catch(Exception e){
             System.debug('Exception ' + e.getLineNumber() + ' ' + e.getMessage());
         }
