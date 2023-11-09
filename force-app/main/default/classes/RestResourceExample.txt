@@ -1,0 +1,267 @@
+@RestResource(urlMapping='/v1/committees')
+global with sharing class GetCommitteeInformation  {
+    
+    @HttpGET
+    global static void doGet() {
+        RestRequest request = RestContext.request;
+        System.debug('Request'+ request.requestURI);
+        try{
+            String committeeName = request.params.get('committee');
+            System.debug('committeeName'+ committeeName);
+            String committeeId = request.params.get('id');
+            System.debug('committeeId'+ committeeId);
+            RestResponse res = RestContext.response;
+            if(committeeName != null || committeeId !=null ){
+                committeeRelatedResponseWrapper cwrapper = new committeeRelatedResponseWrapper();
+                cwrapper = getCommitteeRelatedInformation(committeeName,committeeId);
+                res.responseBody = Blob.valueof(JSON.serialize(cwrapper));
+            }else{
+                ResponseWrapper committeResponses = new ResponseWrapper();
+                committeResponses = getCommitteeInformation();
+                res.responseBody = Blob.valueof(JSON.serialize(committeResponses));
+            }
+            
+            
+        }catch(Exception ex){
+        }
+    }
+    
+    global class ResponseWrapper{
+        public List<OriginalCommittee> committees;
+        public List<String> pillars;
+        public List<String> region;
+        
+    }
+    
+    global class OriginalCommittee{
+        public String commmitteUrlName;
+        public dateTime cdateTime;
+        public String id;
+        public String imageUrl;
+        public List<String> pillars;
+        public List<String> region;
+        public String title;
+    }
+    
+    public static ResponseWrapper getCommitteeInformation(){
+        List<OriginalCommittee> committeResponses = new List<OriginalCommittee>();
+        ResponseWrapper committeeRes = new ResponseWrapper();
+        committeeRes.pillars = getPicklistValues('Committee__c','Pillar__c');
+        committeeRes.region = getPicklistValues('Committee__c','Website_Region_Display__c');
+        for(Committee__c committee : getCommitteeRecord()){
+            committeResponses.add(createCommitteResponse(committee));
+        }
+        committeeRes.committees = committeResponses;
+        return committeeRes;
+    }
+    
+    public static List<String> getPicklistValues(String ObjectName,String fieldName){ 
+        List<String> picklistValues = new List<String>();
+        Schema.SObjectType s = Schema.getGlobalDescribe().get(objectName) ;
+        Schema.DescribeSObjectResult r = s.getDescribe() ;
+        Map<String,Schema.SObjectField> fields = r.fields.getMap() ;
+        Schema.DescribeFieldResult fieldResult = fields.get(fieldName).getDescribe();
+        List<Schema.PicklistEntry> ple = fieldResult.getPicklistValues();
+        for( Schema.PicklistEntry pickListVal : ple){
+            picklistValues.add(pickListVal.getValue());
+            // System.debug(pickListVal.getLabel() +' '+pickListVal.getValue());
+        }   
+        return picklistValues;
+    }
+    
+    public static OriginalCommittee createCommitteResponse(Committee__c committee){
+        OriginalCommittee cmty = new OriginalCommittee();
+        cmty.commmitteUrlName = committee.Committee_URL_Name__c;
+        cmty.id = committee.Id;
+        List<Event__c> events = committee.Events__r;
+        if(events.isEmpty() == false){
+            cmty.cdateTime = events[0].Start_Time__c;   
+        }
+        cmty.imageUrl = committee.Image_URL__c;
+        cmty.region = committee.Website_Region_Display__c!= null ? committee.Website_Region_Display__c.split(';') : null ;
+        cmty.pillars = new List<String>{committee.Pillar__c};
+            cmty.title = committee.Website_Display_Name__c;
+        return cmty;
+    }
+    
+    public static List<Committee__c> getCommitteeRecord(){
+        return [Select Id,Pillar__c,Image_URL__c,Website_Display_Name__c,Committee_URL_Name__c,Website_Region_Display__c,(Select Id,Start_Time__c from Events__r  Where Start_Time__c >= Today order by Start_Time__c LIMIT 1) from Committee__c Where Committee_Active__c = true AND Display_On_Site__c = true AND Accessibility__c = 'Public'];
+    }
+    
+    public static List<Committee_Member__c> getCommitteeMemberRecord(String committeeId){
+        return [Select Id,CreatedBy.Name,CreatedBy.Title, CreatedBy.CompanyName,Committtee_Member__r.Name,ContactName__c,ContactTitle__c,
+                Committee_Role__c,ContactPhotoURL__c,Committtee_Member__r.PhotoURL__c,Account__r.Name,Committtee_Member__r.Account.Name, Committtee_Member__r.Current_Company__c, Committtee_Member__r.Email from 
+                Committee_Member__c Where Committee__c =: committeeId AND Member_Active__c = true 
+                AND DisplayOnWebsite__c = true AND Committee_Role__c IN ('Chair','Co-chair','Biocom Contact','Biocom Staff')];
+    }
+    
+    public static List<Committee_Responsibility__c> getCommitteeResponsibilityRecord(String committeeId){
+        return [Select Id,Responsibility_Party__c,Responsibility_Text__c,Responsibility_Type__c from Committee_Responsibility__c Where Committee__c =:committeeId];
+    }
+    
+    public static committeeRelatedResponseWrapper getCommitteeRelatedInformation(String committeeName,String committeeId){
+        committeeRelatedResponseWrapper resWrapper = new committeeRelatedResponseWrapper(); 
+        List<meetingsData> meetingData = new List<meetingsData>();
+        List<biocomStaff> staffs = new List<biocomStaff>();
+        List<chairs> chairList = new List<chairs>();
+        contact cont = new contact();
+        List<committee> coms = new List<committee>();
+        List<biocom> bcoms = new List<biocom>();
+        responsibilities respon = new responsibilities();
+        meetings meet = new meetings();
+        try{
+            
+            String query = 'Select Id,Pillar__c,Meeting_Format__c,Meeting_Cadence__c,Eligibility_Requirements__c,Website_Description__c,Website_Region_Display__c,Website_Display_Name__c from Committee__c';
+            if(committeeId != null){
+                query += ' Where Id =\'' + committeeId + '\'';
+            }else if(committeeName != null){
+                query += ' Where Committee_URL_Name__c =\''+ committeeName + '\'';  
+            }
+            System.debug(query);
+            List<Committee__c> committies = Database.query(query);
+            Committee__c committee = committies[0] ; 
+            for(Committee_Member__c member : getCommitteeMemberRecord(committee.Id)){ 
+                if(member.Committee_Role__c == 'Chair' || member.Committee_Role__c == 'Co-chair'){
+                    chairs chair = new chairs();
+                    chair.name = member.ContactName__c;
+                    chair.jobTitle = member.ContactTitle__c;
+                    chair.company = member.Committtee_Member__r.Account.Name;
+                    chair.image = member.ContactPhotoURL__c; 
+                    chairList.add(chair); 
+                }else if(member.Committee_Role__c =='Biocom Staff'){
+                    biocomStaff staff = new biocomStaff();
+                    staff.name = member.ContactName__c;
+                    staff.jobTitle = member.ContactTitle__c;
+                    staff.company = member.Committtee_Member__r.Account.Name;
+                    staff.image = member.ContactPhotoURL__c;
+                    staffs.add(staff);
+                }else if(member.Committee_Role__c == 'Biocom Contact'){
+                    cont.name = member.Committtee_Member__r.Name;
+                    cont.position = '';
+                    cont.company = member.Committtee_Member__r.Account.Name;
+                    cont.email = member.Committtee_Member__r.Email;
+                }                                                                  
+            }
+            for(Event__c event :[Select Id,Event_URL_Name__c,Start_Time__c,Title__c,EventImage__r.URL__c from Event__c Where Committee__c =: committee.Id]){
+                meetingsData data = new meetingsData();
+                data.title = event.Title__c;
+                data.dt = event.Start_Time__c;
+                data.image = event.EventImage__r.URL__c;
+                data.id = event.Id;
+                data.eventUrlName = event.Event_URL_Name__c;
+                meetingData.add(data);
+            }
+            
+            List<eligibilityRequirements> reqs = new List<eligibilityRequirements>();
+            for(Committee_Eligibility_Requirement__c req : [Select Id,Description__c,Order_Number__c from Committee_Eligibility_Requirement__c Where Committee__c =:committee.Id]){
+                eligibilityRequirements re = new eligibilityRequirements();
+                re.Description = req.Description__c;
+                re.Order = String.valueOf(req.Order_Number__c);
+                reqs.add(re);
+            }
+            
+            for(Committee_Responsibility__c responsibility : getCommitteeResponsibilityRecord(committee.Id)){
+                if(responsibility.Responsibility_Party__c == 'Committee'){
+                    committee com = new committee();
+                    com.description = responsibility.Responsibility_Text__c;
+                    com.type = responsibility.Responsibility_Type__c;
+                    coms.add(com);
+                }else if(responsibility.Responsibility_Party__c == 'Biocom California'){
+                    biocom bcom = new biocom();
+                    bcom.description = responsibility.Responsibility_Text__c;
+                    bcom.type = responsibility.Responsibility_Type__c;
+                    bcoms.add(bcom);
+                } 
+                
+            }
+            respon.committee = coms;
+            respon.biocom = bcoms;
+            meet.meetingCadence = committee.Meeting_Cadence__c;
+            meet.meetingFormat = committee.Meeting_Format__c;
+            meet.meetings = meetingData;
+            resWrapper.biocomStaff = staffs;
+            resWrapper.contact = cont;
+            resWrapper.chairs = chairList;
+            resWrapper.id = committee.Id;
+            resWrapper.meetings = meet;
+            resWrapper.missionStatement = committee.Website_Description__c;
+            resWrapper.title = committee.Website_Display_Name__c;
+            resWrapper.responsibilities = respon;
+            resWrapper.eligibilityRequirements = reqs;
+        }catch(Exception ex){
+            System.debug('Exception'+ ex.getMessage());
+        }
+        
+        return resWrapper;
+    }
+    
+    global class committeeRelatedResponseWrapper {
+        public List<biocomStaff> biocomStaff;
+        public List<chairs> chairs;
+        public contact contact;
+        public String id;
+        public meetings meetings;
+        public String missionStatement;
+        public responsibilities responsibilities;
+        public String title;
+        public List<eligibilityRequirements> eligibilityRequirements;
+        
+    }
+    
+    public class eligibilityRequirements{
+        public String Order;
+        public String Description;
+    }
+    
+    
+    global class responsibilities {
+        public List<committee> committee;
+        public List<biocom> biocom;
+    }
+    
+    global class committee {
+        public String type;
+        public String description;
+    }
+    
+    global class biocom {
+        public String type;
+        public String description;
+    }
+    
+    global class biocomStaff {
+        public String name;
+        public String jobTitle;
+        public String company;
+        public String image;
+    }
+    
+    global class chairs {
+        public String name;
+        public String jobTitle;
+        public String company;
+        public String image;
+    }
+    
+    global class contact {
+        public String name;
+        public String position;
+        public String company;
+        public String email;
+    }
+    
+    global class meetings {
+        public String meetingCadence;
+        public String meetingFormat;
+        public List<meetingsData> meetings;
+    }
+    
+    global class meetingsData{
+        public String image;
+        public datetime dt;
+        public String title;
+        public String id;
+        public String eventUrlName;
+    }
+    
+}
